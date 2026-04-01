@@ -19,12 +19,19 @@ export default {
   async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
 
+    // Optional header verification (Telegram secret_token)
+    const secretHeader = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
+    const hasSecretHeader = !!secretHeader;
+
     if (request.method === "GET" && pathname === "/") {
       return new Response("ok", { status: 200 });
     }
 
     const expectedPath = `/webhook/${env.WEBHOOK_SECRET}`;
     if (request.method === "POST" && pathname === expectedPath) {
+      if (hasSecretHeader && secretHeader !== env.WEBHOOK_SECRET) {
+        return new Response("forbidden", { status: 403 });
+      }
       const update = await request.json();
       ctx.waitUntil(handleUpdate(update, env));
       return new Response("ok", { status: 200 });
@@ -244,6 +251,12 @@ async function handleCallback(cb, env) {
     }
     session.step = "waiting_decision";
     await saveSession(env, chatId, session);
+    // Remove old inline keyboard to avoid stale clicks
+    await tg(env, "editMessageReplyMarkup", {
+      chat_id: chatId,
+      message_id: cb.message.message_id,
+      reply_markup: { inline_keyboard: [] },
+    });
     await sendDecision(env, chatId, session.scenario);
     return;
   }
@@ -256,18 +269,20 @@ async function handleCallback(cb, env) {
     session.step = "waiting_phone";
     await saveSession(env, chatId, session);
 
+    // Remove old inline keyboard to avoid stale clicks
+    await tg(env, "editMessageReplyMarkup", {
+      chat_id: chatId,
+      message_id: cb.message.message_id,
+      reply_markup: { inline_keyboard: [] },
+    });
+
     if (data === "show_option") {
       await sendScenarioStub(env, chatId, session.scenario);
       await sendPhoneRequest(env, chatId);
       return;
     }
     if (data === "contact_me") {
-      await sendMessage(
-        env,
-        chatId,
-        `Можете написать мне напрямую: ${CONTACT_USERNAME}\n` +
-          "Если удобнее, отправьте номер телефона — я сам свяжусь с вами."
-      );
+      await sendMessage(env, chatId, `Можете написать мне напрямую: ${CONTACT_USERNAME}\nЕсли удобнее, могу сам связаться — тогда отправьте номер телефона.`);
       await sendPhoneRequest(env, chatId);
       return;
     }
