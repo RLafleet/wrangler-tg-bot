@@ -11,7 +11,8 @@
  * - ADMIN_CHAT_ID (optional, for notifications)
  */
 
-const CONTACT_USERNAME = "@YOUR_USERNAME";
+const CONTACT_USERNAME = "@Cerber03w";
+const CONTACT_PHONE = "+79877310529";
 const REFERRAL_REWARD_TEXT = "500 ₽";
 
 export default {
@@ -51,13 +52,20 @@ function defaultSession() {
         source: "direct",
         ref_code: "",
         referred_by: "",
+        referrals_count: 0,
         referral_reward_status: "pending",
     };
 }
 
 async function loadSession(env, chatId) {
     const raw = await env.SESSIONS.get(chatId.toString());
-    return raw ? JSON.parse(raw) : defaultSession();
+    if (!raw) return defaultSession();
+
+    try {
+        return {...defaultSession(), ...JSON.parse(raw) };
+    } catch {
+        return defaultSession();
+    }
 }
 
 async function saveSession(env, chatId, session) {
@@ -99,6 +107,27 @@ async function tg(env, method, body = {}) {
     return data.result;
 }
 
+async function clearDecisionMessage(env, chatId, messageId) {
+    try {
+        await tg(env, "editMessageReplyMarkup", {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: { inline_keyboard: [] },
+        });
+    } catch (e) {
+        console.error("editMessageReplyMarkup error", e);
+    }
+
+    try {
+        await tg(env, "deleteMessage", {
+            chat_id: chatId,
+            message_id: messageId,
+        });
+    } catch (e) {
+        console.error("deleteMessage error", e);
+    }
+}
+
 function parseStartPayload(text) {
     if (!text) return null;
     const parts = text.trim().split(/\s+/);
@@ -109,6 +138,7 @@ function parseStartPayload(text) {
 function parseSourceAndReferral(payload) {
     if (!payload) return { source: "direct", referred_by: "" };
 
+    // Combined form: src_x__ref_y
     if (payload.includes("__")) {
         const [left, right] = payload.split("__", 2);
         const source = left.startsWith("src_") ? left.slice(4) : left;
@@ -143,6 +173,14 @@ function generateRefCode(chatId) {
     return `u${Number(chatId).toString(36)}`;
 }
 
+function parseRefCodeToChatId(refCode) {
+    if (!refCode || typeof refCode !== "string" || !/^u[0-9a-z]+$/i.test(refCode)) {
+        return null;
+    }
+    const parsed = parseInt(refCode.slice(1), 36);
+    return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
 function buildReferralLink(env, refCode) {
     const botUsername = env.BOT_USERNAME || "";
     if (!botUsername || !refCode) return "";
@@ -168,9 +206,6 @@ function normalizePhone(raw) {
     }
     if (cleaned.length === 11 && cleaned.startsWith("8")) {
         cleaned = "7" + cleaned.slice(1);
-    }
-    if (cleaned.length === 11 && cleaned.startsWith("7")) {
-        // leave as is
     }
 
     if (cleaned.length !== 11 || !cleaned.startsWith("7")) return null;
@@ -225,12 +260,9 @@ async function handleMessage(msg, env) {
         const payload = parseStartPayload(text);
         const { source, referred_by } = parseSourceAndReferral(payload);
 
-        const refCode = generateRefCode(chatId);
-
         session.source = source || "direct";
         session.referred_by = referred_by || "";
-        session.ref_code = refCode;
-        session.referral_reward_status = "pending";
+        session.ref_code = session.ref_code || generateRefCode(chatId);
 
         if (session.ref_code && session.referred_by && session.ref_code === session.referred_by) {
             session.referred_by = "";
@@ -252,7 +284,11 @@ async function handleMessage(msg, env) {
     }
 
     if (text === "/contact") {
-        await sendMessage(env, chatId, `Напишите мне напрямую: ${CONTACT_USERNAME}`);
+        await sendMessage(
+            env,
+            chatId,
+            `Напишите мне напрямую: ${CONTACT_USERNAME}\nИли позвоните: ${CONTACT_PHONE}`
+        );
         return;
     }
 
@@ -336,12 +372,7 @@ async function handleCallback(cb, env) {
         session.step = "waiting_decision";
         await saveSession(env, chatId, session);
 
-        await tg(env, "editMessageReplyMarkup", {
-            chat_id: chatId,
-            message_id: cb.message.message_id,
-            reply_markup: { inline_keyboard: [] },
-        });
-
+        await clearDecisionMessage(env, chatId, cb.message.message_id);
         await sendDecision(env, chatId);
         return;
     }
@@ -355,20 +386,7 @@ async function handleCallback(cb, env) {
         session.step = "waiting_phone";
         await saveSession(env, chatId, session);
 
-        await tg(env, "editMessageReplyMarkup", {
-            chat_id: chatId,
-            message_id: cb.message.message_id,
-            reply_markup: { inline_keyboard: [] },
-        });
-
-        try {
-            await tg(env, "deleteMessage", {
-                chat_id: chatId,
-                message_id: cb.message.message_id,
-            });
-        } catch (e) {
-            console.error("deleteMessage error (decision)", e);
-        }
+        await clearDecisionMessage(env, chatId, cb.message.message_id);
 
         if (data === "show_option") {
             await sendShowOptionAndPhoneRequest(env, chatId, session.scenario);
@@ -380,6 +398,7 @@ async function handleCallback(cb, env) {
                 env,
                 chatId,
                 `Можете написать мне напрямую: ${CONTACT_USERNAME}\n` +
+                `Или позвонить: ${CONTACT_PHONE}\n` +
                 "Подключение бесплатно для вас, первый месяц я оплачиваю сам.\n" +
                 "Если удобнее, отправьте номер телефона — я сам свяжусь с вами."
             );
@@ -428,6 +447,7 @@ async function sendPhoneRequest(env, chatId) {
         chatId,
         "Если удобно, отправьте номер телефона — я свяжусь с вами.\n" +
         `Или можете написать мне напрямую: ${CONTACT_USERNAME}\n` +
+        `Или позвонить: ${CONTACT_PHONE}\n` +
         "Если номер оставлять не хотите, отправьте /skip.", {
             reply_markup: {
                 keyboard: [
@@ -462,6 +482,7 @@ async function sendShowOptionAndPhoneRequest(env, chatId, scenarioText) {
         "Со 2 по 4 месяц стоимость составит 475 ₽/мес, далее — 950 ₽/мес.\n\n" +
         "Если удобно, отправьте номер телефона — я свяжусь с вами.\n" +
         `Или можете написать мне напрямую: ${CONTACT_USERNAME}\n` +
+        `Или позвонить: ${CONTACT_PHONE}\n` +
         "Если номер оставлять не хотите, отправьте /skip.", {
             reply_markup: {
                 keyboard: [
@@ -489,7 +510,21 @@ async function sendReferralMessage(env, chatId, session) {
         text += `\nВаша ссылка: ${refLink}`;
     }
 
+    text += "\nЕсли знакомому удобнее сразу позвонить, пусть скажет ваш код рекомендации.";
+
     await sendMessage(env, chatId, text);
+}
+
+async function registerReferralLead(env, session) {
+    if (!session.referred_by) return;
+
+    const referrerChatId = parseRefCodeToChatId(session.referred_by);
+    if (!referrerChatId) return;
+
+    const referrerSession = await loadSession(env, referrerChatId);
+    referrerSession.ref_code = referrerSession.ref_code || generateRefCode(referrerChatId);
+    referrerSession.referrals_count = (referrerSession.referrals_count || 0) + 1;
+    await saveSession(env, referrerChatId, referrerSession);
 }
 
 async function notifyAdmin(env, lead) {
@@ -534,12 +569,14 @@ async function finalizeLead(env, chatId, session, msg, status = "done") {
     const key = `lead:${Date.now()}:${chatId}`;
     await env.LEADS.put(key, JSON.stringify(lead));
     await notifyAdmin(env, lead);
+    await registerReferralLead(env, session);
 
     await sendMessage(
         env,
         chatId,
         "Спасибо! Я свяжусь с вами и помогу с подключением.\n" +
-        `Если удобнее, можете написать мне: ${CONTACT_USERNAME}`, {
+        `Если удобнее, можете написать мне: ${CONTACT_USERNAME}\n` +
+        `Или позвонить: ${CONTACT_PHONE}`, {
             reply_markup: { remove_keyboard: true },
         }
     );
