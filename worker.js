@@ -18,13 +18,17 @@
 const CONTACT_USERNAME = "@Cerber03w";
 const CONTACT_PHONE = "+79877310529";
 const REFERRAL_REWARD_TEXT = "500 ₽";
-const AGENT_CHANNEL_TEXT = "Официальный Telegram-канал агента МТС Виктора";
+const AGENT_CHANNEL_TEXT = "Официальный Telegram-канал агента МТС, Виктора";
 
-// Твой уже полученный file_id.
-// Пока используем как дефолтную картинку тарифа.
-// Когда получишь еще 1–2 file_id, просто прокинешь их через env.
-const DEFAULT_TARIFF_FILE_ID =
+// Дефолтные картинки тарифов
+const DEFAULT_TARIFF_FAMILY_FILE_ID =
     "AgACAgIAAxkBAAOtac5lH-mdwXaSydWEB2ttvVV-hKkAAnoUaxuSZXlKkpDAOEenoyoBAAMCAAN4AAM6BA";
+
+const DEFAULT_TARIFF_ACTIVE_FILE_ID =
+    "AgACAgIAAxkBAAOtac5lH-mdwXaSydWEB2ttvVV-hKkAAnoUaxuSZXlKkpDAOEenoyoBAAMCAAN4AAM6BA";
+
+const DEFAULT_TARIFF_ONLY_FILE_ID =
+    "AgACAgIAAxkBAAPJac5oqBh1yQ9rj1Y2MZsSK7DuASMAAqgUaxuSZXlKkmSgnPMC1hsBAAMCAAN4AAM6BA";
 
 export default {
     async fetch(request, env, ctx) {
@@ -159,7 +163,6 @@ function parseStartPayload(text) {
 function parseSourceAndReferral(payload) {
     if (!payload) return { source: "direct", referred_by: "" };
 
-    // combined form: src_dom1__ref_uabc123
     if (payload.includes("__")) {
         const [left, right] = payload.split("__", 2);
         const source = left.startsWith("src_") ? left.slice(4) : left;
@@ -215,12 +218,12 @@ function buildAgentChannelLine(env) {
 
 function getTariffPhotoId(env, scenarioText) {
     if (scenarioText === "Для квартиры или семьи") {
-        return env.TARIFF_FAMILY_FILE_ID || DEFAULT_TARIFF_FILE_ID;
+        return env.TARIFF_FAMILY_FILE_ID || DEFAULT_TARIFF_FAMILY_FILE_ID;
     }
     if (scenarioText === "Для активного интернета и нескольких устройств") {
-        return env.TARIFF_ACTIVE_FILE_ID || DEFAULT_TARIFF_FILE_ID;
+        return env.TARIFF_ACTIVE_FILE_ID || DEFAULT_TARIFF_ACTIVE_FILE_ID;
     }
-    return env.TARIFF_ONLY_FILE_ID || DEFAULT_TARIFF_FILE_ID;
+    return env.TARIFF_ONLY_FILE_ID || DEFAULT_TARIFF_ONLY_FILE_ID;
 }
 
 function isValidAddress(text) {
@@ -248,6 +251,124 @@ function normalizePhone(raw) {
     return `+${cleaned}`;
 }
 
+function buildOfferText(scenarioText, env) {
+    let stub;
+    let pricing;
+
+    if (scenarioText === "Для квартиры или семьи") {
+        stub = "Для вашего адреса подходит вариант подключения МТС для квартиры или семьи.";
+        pricing =
+            "Для вас подключение бесплатно, и первый месяц я оплачиваю сам.\n" +
+            "Со 2 по 4 месяц стоимость составит 475 ₽/мес, далее — 950 ₽/мес.";
+    } else if (scenarioText === "Для активного интернета и нескольких устройств") {
+        stub = "Для вашего адреса подходит вариант подключения МТС для активного интернета и нескольких устройств.";
+        pricing =
+            "Для вас подключение бесплатно, и первый месяц я оплачиваю сам.\n" +
+            "Со 2 по 4 месяц стоимость составит 475 ₽/мес, далее — 950 ₽/мес.";
+    } else {
+        stub = "Для вашего адреса подходит вариант подключения МТС только с интернетом.";
+        pricing =
+            "Для вас подключение бесплатно, и первый месяц я оплачиваю сам.\n" +
+            "Далее стоимость составит 700 ₽/мес.";
+    }
+
+    const channelLine = buildAgentChannelLine(env);
+
+    let text = `${stub}\n${pricing}`;
+    if (channelLine) {
+        text += `\n${channelLine}`;
+    }
+
+    text +=
+        `\n\nЕсли удобно, отправьте номер телефона — я свяжусь с вами.\n` +
+        `Или можете написать по официальному Telegram-каналу агента МТС, Виктора: ${CONTACT_USERNAME}\n` +
+        `Или позвонить по официальному номеру МТС: ${CONTACT_PHONE}\n`;
+
+    return text;
+}
+
+function buildPhoneReplyKeyboard(scenarioText) {
+    const rows = [
+        [{
+            text: "Отправить номер телефона",
+            request_contact: true,
+        }, ],
+    ];
+
+    if (
+        scenarioText === "Для квартиры или семьи" ||
+        scenarioText === "Для активного интернета и нескольких устройств"
+    ) {
+        rows.push([{ text: "Что значит группа для близких?" }]);
+    }
+
+    rows.push([{ text: "Посмотреть другой тариф" }]);
+
+    return {
+        keyboard: rows,
+        resize_keyboard: true,
+        one_time_keyboard: false,
+    };
+}
+
+function buildContactReplyKeyboard() {
+    return {
+        keyboard: [
+            [{
+                text: "Отправить номер телефона",
+                request_contact: true,
+            }, ],
+            [{ text: "Посмотреть другой тариф" }],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+    };
+}
+
+/* ---------- lead helpers ---------- */
+
+async function registerStartLead(env, from, chatId, session) {
+    const lead = {
+        chatId,
+        firstName: from && from.first_name ? from.first_name : "",
+        username: from && from.username ? from.username : "",
+        address: "",
+        scenario: "",
+        phone: "",
+        source: session.source,
+        ref_code: session.ref_code || generateRefCode(chatId),
+        referred_by: session.referred_by || "",
+        referral_reward_status: session.referral_reward_status || "pending",
+        status: "started",
+        createdAt: new Date().toISOString(),
+    };
+
+    const key = `lead:${Date.now()}:${chatId}:started`;
+    await env.LEADS.put(key, JSON.stringify(lead));
+    await notifyAdmin(env, lead);
+}
+
+async function registerOfferClickLead(env, from, chatId, session) {
+    const lead = {
+        chatId,
+        firstName: from && from.first_name ? from.first_name : "",
+        username: from && from.username ? from.username : "",
+        address: session.address,
+        scenario: session.scenario,
+        phone: "",
+        source: session.source,
+        ref_code: session.ref_code || generateRefCode(chatId),
+        referred_by: session.referred_by || "",
+        referral_reward_status: session.referral_reward_status || "pending",
+        status: "offer_clicked",
+        createdAt: new Date().toISOString(),
+    };
+
+    const key = `lead:${Date.now()}:${chatId}:offer`;
+    await env.LEADS.put(key, JSON.stringify(lead));
+    await notifyAdmin(env, lead);
+}
+
 /* ---------- main handlers ---------- */
 
 async function handleUpdate(update, env) {
@@ -268,9 +389,8 @@ async function handleMessage(msg, env) {
             await sendMessage(
                 env,
                 chatId,
-                "Контакт должен быть вашим. Отправьте свой номер или введите его вручную."
+                "Контакт должен быть вашим. Отправьте свой номер или введите его вручную.", { reply_markup: buildPhoneReplyKeyboard(session.scenario) }
             );
-            await sendPhoneRequest(env, chatId);
             return;
         }
 
@@ -279,9 +399,8 @@ async function handleMessage(msg, env) {
             await sendMessage(
                 env,
                 chatId,
-                "Нужен номер в формате +7XXXXXXXXXX. Или отправьте контакт кнопкой ниже."
+                "Нужен номер в формате +7XXXXXXXXXX. Или отправьте контакт кнопкой ниже.", { reply_markup: buildPhoneReplyKeyboard(session.scenario) }
             );
-            await sendPhoneRequest(env, chatId);
             return;
         }
 
@@ -300,7 +419,6 @@ async function handleMessage(msg, env) {
         session.referred_by = referred_by || "";
         session.ref_code = session.ref_code || generateRefCode(chatId);
 
-        // защита от self-referral
         if (session.ref_code && session.referred_by && session.ref_code === session.referred_by) {
             session.referred_by = "";
         }
@@ -311,12 +429,13 @@ async function handleMessage(msg, env) {
         session.phone = "";
 
         await saveSession(env, chatId, session);
-
         await sendMessage(
             env,
             chatId,
             "Здравствуйте!\nЧтобы проверить интернет по вашему адресу, напишите улицу и номер дома — это займет меньше минуты."
         );
+
+        await registerStartLead(env, msg.from, chatId, session);
         return;
     }
 
@@ -334,6 +453,31 @@ async function handleMessage(msg, env) {
         session.step = "done_without_phone";
         await saveSession(env, chatId, session);
         await finalizeLead(env, chatId, session, msg, "done_without_phone");
+        return;
+    }
+
+    if (text === "Посмотреть другой тариф" && session.step === "waiting_phone") {
+        session.step = "waiting_scenario";
+        await saveSession(env, chatId, session);
+        await sendScenarioButtons(env, chatId);
+        return;
+    }
+
+    if (
+        text === "Что значит группа для близких?" &&
+        session.step === "waiting_phone" &&
+        (
+            session.scenario === "Для квартиры или семьи" ||
+            session.scenario === "Для активного интернета и нескольких устройств"
+        )
+    ) {
+        await sendMessage(
+            env,
+            chatId,
+            "Группа для близких — это возможность объединить близких в один удобный сценарий пользования связью. Я подскажу, как это работает и что именно входит, когда свяжусь с вами.", {
+                reply_markup: buildPhoneReplyKeyboard(session.scenario),
+            }
+        );
         return;
     }
 
@@ -360,9 +504,8 @@ async function handleMessage(msg, env) {
             await sendMessage(
                 env,
                 chatId,
-                "Нужен номер в формате +7XXXXXXXXXX. Или отправьте контакт кнопкой ниже."
+                "Нужен номер в формате +7XXXXXXXXXX. Или отправьте контакт кнопкой ниже.", { reply_markup: buildPhoneReplyKeyboard(session.scenario) }
             );
-            await sendPhoneRequest(env, chatId);
             return;
         }
 
@@ -420,21 +563,25 @@ async function handleCallback(cb, env) {
             return;
         }
 
-        session.step = "waiting_phone";
-        await saveSession(env, chatId, session);
-
-        await clearDecisionMessage(env, chatId, cb.message.message_id);
-
         if (data === "show_option") {
+            session.step = "waiting_phone";
+            await saveSession(env, chatId, session);
+            await clearDecisionMessage(env, chatId, cb.message.message_id);
+            await registerOfferClickLead(env, cb.from, chatId, session);
             await sendShowOptionAndPhoneRequest(env, chatId, session.scenario);
             return;
         }
 
         if (data === "contact_me") {
+            session.step = "waiting_phone";
+            await saveSession(env, chatId, session);
+            await clearDecisionMessage(env, chatId, cb.message.message_id);
+            await registerOfferClickLead(env, cb.from, chatId, session);
+
             const channelLine = buildAgentChannelLine(env);
             let text =
-                `Можете написать мне напрямую: ${CONTACT_USERNAME}\n` +
-                `Или позвонить: ${CONTACT_PHONE}\n` +
+                `Можете написать по официальному Telegram-каналу агента МТС, Виктора: ${CONTACT_USERNAME}\n` +
+                `Или позвонить по официальному номеру МТС: ${CONTACT_PHONE}\n` +
                 "Подключение бесплатно для вас, первый месяц я оплачиваю сам.\n" +
                 "Если удобнее, отправьте номер телефона — я сам свяжусь с вами.";
 
@@ -442,12 +589,25 @@ async function handleCallback(cb, env) {
                 text += `\n${channelLine}`;
             }
 
-            await sendMessage(env, chatId, text);
-            await sendPhoneRequest(env, chatId);
+            await sendMessage(env, chatId, text, {
+                reply_markup: buildContactReplyKeyboard(),
+            });
             return;
         }
 
-        await sendPhoneRequest(env, chatId);
+        session.step = "waiting_phone";
+        await saveSession(env, chatId, session);
+        await clearDecisionMessage(env, chatId, cb.message.message_id);
+        await registerOfferClickLead(env, cb.from, chatId, session);
+        await sendMessage(
+            env,
+            chatId,
+            "Если удобно, отправьте номер телефона — я свяжусь с вами.\n" +
+            `Или можете написать по официальному Telegram-каналу агента МТС, Виктора: ${CONTACT_USERNAME}\n` +
+            `Или позвонить по официальному номеру МТС: ${CONTACT_PHONE}\n`, {
+                reply_markup: buildPhoneReplyKeyboard(session.scenario),
+            }
+        );
     }
 }
 
@@ -482,67 +642,10 @@ async function sendDecision(env, chatId) {
     );
 }
 
-async function sendPhoneRequest(env, chatId) {
-    await sendMessage(
-        env,
-        chatId,
-        "Если удобно, отправьте номер телефона — я свяжусь с вами.\n" +
-        `Или можете написать мне напрямую: ${CONTACT_USERNAME}\n` +
-        `Или позвонить: ${CONTACT_PHONE}\n` +
-        "Если номер оставлять не хотите, отправьте /skip.", {
-            reply_markup: {
-                keyboard: [
-                    [{
-                        text: "Отправить номер телефона",
-                        request_contact: true,
-                    }, ],
-                ],
-                resize_keyboard: true,
-                one_time_keyboard: true,
-            },
-        }
-    );
-}
-
 async function sendShowOptionAndPhoneRequest(env, chatId, scenarioText) {
-    let stub;
-    if (scenarioText === "Для квартиры или семьи") {
-        stub = "Для вашего адреса подходит вариант подключения МТС для квартиры или семьи.";
-    } else if (scenarioText === "Для активного интернета и нескольких устройств") {
-        stub = "Для вашего адреса подходит вариант подключения МТС для активного интернета и нескольких устройств.";
-    } else {
-        stub = "Для вашего адреса подходит вариант подключения МТС только с интернетом.";
-    }
-
-    const channelLine = buildAgentChannelLine(env);
-
-    let text =
-        `${stub}\n` +
-        "Для вас подключение бесплатно, и первый месяц я оплачиваю сам.\n" +
-        "Со 2 по 4 месяц стоимость составит 475 ₽/мес, далее — 950 ₽/мес.";
-
-    if (channelLine) {
-        text += `\n${channelLine}`;
-    }
-
-    text +=
-        `\n\nЕсли удобно, отправьте номер телефона — я свяжусь с вами.\n` +
-        `Или можете написать мне напрямую: ${CONTACT_USERNAME}\n` +
-        `Или позвонить: ${CONTACT_PHONE}\n` +
-        "Если номер оставлять не хотите, отправьте /skip.";
-
-    const replyMarkup = {
-        keyboard: [
-            [{
-                text: "Отправить номер телефона",
-                request_contact: true,
-            }, ],
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: true,
-    };
-
+    const text = buildOfferText(scenarioText, env);
     const photoId = getTariffPhotoId(env, scenarioText);
+    const replyMarkup = buildPhoneReplyKeyboard(scenarioText);
 
     if (photoId) {
         await sendPhoto(env, chatId, photoId, text, {
@@ -555,6 +658,8 @@ async function sendShowOptionAndPhoneRequest(env, chatId, scenarioText) {
         reply_markup: replyMarkup,
     });
 }
+
+/* ---------- referral / notify ---------- */
 
 async function sendReferralMessage(env, chatId, session) {
     const refCode = session.ref_code || generateRefCode(chatId);
@@ -638,8 +743,8 @@ async function finalizeLead(env, chatId, session, msg, status = "done") {
         env,
         chatId,
         "Спасибо! Я свяжусь с вами и помогу с подключением.\n" +
-        `Если удобнее, можете написать мне: ${CONTACT_USERNAME}\n` +
-        `Или позвонить: ${CONTACT_PHONE}`, {
+        `Если удобнее, можете написать по официальному Telegram-каналу агента МТС, Виктора: ${CONTACT_USERNAME}\n` +
+        `Или позвонить по официальному номеру МТС: ${CONTACT_PHONE}`, {
             reply_markup: { remove_keyboard: true },
         }
     );
