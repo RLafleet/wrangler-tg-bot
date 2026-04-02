@@ -6,6 +6,10 @@
  * - BOT_TOKEN (secret)
  * - WEBHOOK_SECRET (secret)
  * - BOT_USERNAME (plain text, without @)
+ * - AGENT_CHANNEL_URL (optional, full https://t.me/... link)
+ * - TARIFF_FAMILY_FILE_ID (optional)
+ * - TARIFF_ACTIVE_FILE_ID (optional)
+ * - TARIFF_ONLY_FILE_ID (optional)
  * - SESSIONS (KV)
  * - LEADS (KV)
  * - ADMIN_CHAT_ID (optional, for notifications)
@@ -14,6 +18,13 @@
 const CONTACT_USERNAME = "@Cerber03w";
 const CONTACT_PHONE = "+79877310529";
 const REFERRAL_REWARD_TEXT = "500 ₽";
+const AGENT_CHANNEL_TEXT = "Официальный Telegram-канал агента МТС Виктора";
+
+// Твой уже полученный file_id.
+// Пока используем как дефолтную картинку тарифа.
+// Когда получишь еще 1–2 file_id, просто прокинешь их через env.
+const DEFAULT_TARIFF_FILE_ID =
+    "AgACAgIAAxkBAAOtac5lH-mdwXaSydWEB2ttvVV-hKkAAnoUaxuSZXlKkpDAOEenoyoBAAMCAAN4AAM6BA";
 
 export default {
     async fetch(request, env, ctx) {
@@ -54,6 +65,7 @@ function defaultSession() {
         referred_by: "",
         referrals_count: 0,
         referral_reward_status: "pending",
+        referral_counted: false,
     };
 }
 
@@ -78,6 +90,15 @@ async function sendMessage(env, chatId, text, extra = {}) {
     return tg(env, "sendMessage", {
         chat_id: chatId,
         text,
+        ...extra,
+    });
+}
+
+async function sendPhoto(env, chatId, photo, caption, extra = {}) {
+    return tg(env, "sendPhoto", {
+        chat_id: chatId,
+        photo,
+        caption,
         ...extra,
     });
 }
@@ -138,7 +159,7 @@ function parseStartPayload(text) {
 function parseSourceAndReferral(payload) {
     if (!payload) return { source: "direct", referred_by: "" };
 
-    // Combined form: src_x__ref_y
+    // combined form: src_dom1__ref_uabc123
     if (payload.includes("__")) {
         const [left, right] = payload.split("__", 2);
         const source = left.startsWith("src_") ? left.slice(4) : left;
@@ -185,6 +206,21 @@ function buildReferralLink(env, refCode) {
     const botUsername = env.BOT_USERNAME || "";
     if (!botUsername || !refCode) return "";
     return `https://t.me/${botUsername}?start=ref_${refCode}`;
+}
+
+function buildAgentChannelLine(env) {
+    if (!env.AGENT_CHANNEL_URL) return "";
+    return `${AGENT_CHANNEL_TEXT}: ${env.AGENT_CHANNEL_URL}`;
+}
+
+function getTariffPhotoId(env, scenarioText) {
+    if (scenarioText === "Для квартиры или семьи") {
+        return env.TARIFF_FAMILY_FILE_ID || DEFAULT_TARIFF_FILE_ID;
+    }
+    if (scenarioText === "Для активного интернета и нескольких устройств") {
+        return env.TARIFF_ACTIVE_FILE_ID || DEFAULT_TARIFF_FILE_ID;
+    }
+    return env.TARIFF_ONLY_FILE_ID || DEFAULT_TARIFF_FILE_ID;
 }
 
 function isValidAddress(text) {
@@ -264,6 +300,7 @@ async function handleMessage(msg, env) {
         session.referred_by = referred_by || "";
         session.ref_code = session.ref_code || generateRefCode(chatId);
 
+        // защита от self-referral
         if (session.ref_code && session.referred_by && session.ref_code === session.referred_by) {
             session.referred_by = "";
         }
@@ -394,14 +431,18 @@ async function handleCallback(cb, env) {
         }
 
         if (data === "contact_me") {
-            await sendMessage(
-                env,
-                chatId,
+            const channelLine = buildAgentChannelLine(env);
+            let text =
                 `Можете написать мне напрямую: ${CONTACT_USERNAME}\n` +
                 `Или позвонить: ${CONTACT_PHONE}\n` +
                 "Подключение бесплатно для вас, первый месяц я оплачиваю сам.\n" +
-                "Если удобнее, отправьте номер телефона — я сам свяжусь с вами."
-            );
+                "Если удобнее, отправьте номер телефона — я сам свяжусь с вами.";
+
+            if (channelLine) {
+                text += `\n${channelLine}`;
+            }
+
+            await sendMessage(env, chatId, text);
             await sendPhoneRequest(env, chatId);
             return;
         }
@@ -465,7 +506,6 @@ async function sendPhoneRequest(env, chatId) {
 
 async function sendShowOptionAndPhoneRequest(env, chatId, scenarioText) {
     let stub;
-
     if (scenarioText === "Для квартиры или семьи") {
         stub = "Для вашего адреса подходит вариант подключения МТС для квартиры или семьи.";
     } else if (scenarioText === "Для активного интернета и нескольких устройств") {
@@ -474,28 +514,46 @@ async function sendShowOptionAndPhoneRequest(env, chatId, scenarioText) {
         stub = "Для вашего адреса подходит вариант подключения МТС только с интернетом.";
     }
 
-    await sendMessage(
-        env,
-        chatId,
+    const channelLine = buildAgentChannelLine(env);
+
+    let text =
         `${stub}\n` +
         "Для вас подключение бесплатно, и первый месяц я оплачиваю сам.\n" +
-        "Со 2 по 4 месяц стоимость составит 475 ₽/мес, далее — 950 ₽/мес.\n\n" +
-        "Если удобно, отправьте номер телефона — я свяжусь с вами.\n" +
+        "Со 2 по 4 месяц стоимость составит 475 ₽/мес, далее — 950 ₽/мес.";
+
+    if (channelLine) {
+        text += `\n${channelLine}`;
+    }
+
+    text +=
+        `\n\nЕсли удобно, отправьте номер телефона — я свяжусь с вами.\n` +
         `Или можете написать мне напрямую: ${CONTACT_USERNAME}\n` +
         `Или позвонить: ${CONTACT_PHONE}\n` +
-        "Если номер оставлять не хотите, отправьте /skip.", {
-            reply_markup: {
-                keyboard: [
-                    [{
-                        text: "Отправить номер телефона",
-                        request_contact: true,
-                    }, ],
-                ],
-                resize_keyboard: true,
-                one_time_keyboard: true,
-            },
-        }
-    );
+        "Если номер оставлять не хотите, отправьте /skip.";
+
+    const replyMarkup = {
+        keyboard: [
+            [{
+                text: "Отправить номер телефона",
+                request_contact: true,
+            }, ],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+    };
+
+    const photoId = getTariffPhotoId(env, scenarioText);
+
+    if (photoId) {
+        await sendPhoto(env, chatId, photoId, text, {
+            reply_markup: replyMarkup,
+        });
+        return;
+    }
+
+    await sendMessage(env, chatId, text, {
+        reply_markup: replyMarkup,
+    });
 }
 
 async function sendReferralMessage(env, chatId, session) {
@@ -510,13 +568,15 @@ async function sendReferralMessage(env, chatId, session) {
         text += `\nВаша ссылка: ${refLink}`;
     }
 
-    text += "\nЕсли знакомому удобнее сразу позвонить, пусть скажет ваш код рекомендации.";
+    text +=
+        "\nЕсли знакомому удобнее сразу позвонить, пусть скажет ваш код рекомендации.";
 
     await sendMessage(env, chatId, text);
 }
 
-async function registerReferralLead(env, session) {
+async function registerReferralLead(env, chatId, session) {
     if (!session.referred_by) return;
+    if (session.referral_counted) return;
 
     const referrerChatId = parseRefCodeToChatId(session.referred_by);
     if (!referrerChatId) return;
@@ -525,6 +585,9 @@ async function registerReferralLead(env, session) {
     referrerSession.ref_code = referrerSession.ref_code || generateRefCode(referrerChatId);
     referrerSession.referrals_count = (referrerSession.referrals_count || 0) + 1;
     await saveSession(env, referrerChatId, referrerSession);
+
+    session.referral_counted = true;
+    await saveSession(env, chatId, session);
 }
 
 async function notifyAdmin(env, lead) {
@@ -569,7 +632,7 @@ async function finalizeLead(env, chatId, session, msg, status = "done") {
     const key = `lead:${Date.now()}:${chatId}`;
     await env.LEADS.put(key, JSON.stringify(lead));
     await notifyAdmin(env, lead);
-    await registerReferralLead(env, session);
+    await registerReferralLead(env, chatId, session);
 
     await sendMessage(
         env,
