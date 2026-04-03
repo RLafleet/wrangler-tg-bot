@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A5 Leaflet — TG + VK</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        @page {
+            size: A5;
+            margin: 0;
+        }
+        
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #f3f4f6;
+            color: #111827;
+            font-family: Inter, Arial, sans-serif;
+        }
+        
+        h1 {
+            margin: 0 0 8px;
+            font-size: 30px;
+            line-height: 1.1;
+        }
+        
+        .topnote {
+            margin: 0 0 28px;
+            color: #4b5563;
+            font-size: 15px;
+            line-height: 1.45;
+        }
+        
+        .boards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 24px;
+            align-items: start;
+        }
+        
+        .leaflet {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 148 / 210;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: 0 18px 48px rgba(0, 0, 0, .08);
+        }
+        
+        .label {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #3730a3;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        
+        .pad {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+        }
+        
+        .eyebrow {
+            margin-bottom: 12px;
+            color: #6b7280;
+            font-size: 12px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            font-weight: 800;
+        }
+        
+        .hero {
+            margin: 0 0 16px;
+            font-size: 29px;
+            line-height: 1.03;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+        }
+        
+        .subhero {
+            margin: 0 0 16px;
+            color: #374151;
+            font-size: 15px;
+            line-height: 1.45;
+        }
+        
+        .profile {
+            display: grid;
+            grid-template-columns: 96px 1fr;
+            gap: 16px;
+            align-items: center;
+            margin: 6px 0 18px;
+            padding: 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            background: #fafafa;
+        }
+        
+        .photo {
+            width: 96px;
+            height: 96px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #d1d5db, #9ca3af);
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 8px;
+            overflow: hidden;
+        }
+        
+        .name {
+            margin-bottom: 6px;
+            font-size: 22px;
+            font-weight: 900;
+        }
+        
+        .role {
+            color: #374151;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+        
+        .bullets {
+            display: grid;
+            gap: 10px;
+            margin: 0 0 18px;
+        }
+        
+        .bullet {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            font-size: 15px;
+            line-height: 1.45;
+        }
+        
+        .dot {
+            width: 9px;
+            height: 9px;
+            flex: 0 0 9px;
+            border-radius: 50%;
+            background: #111827;
+            margin-top: 6px;
+        }
+        
+        .trustline {
+            margin: 0 0 18px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            font-size: 14px;
+            line-height: 1.45;
+            color: #374151;
+        }
+        
+        .trustline strong {
+            color: #111827;
+        }
+        
+        .qrbox {
+            margin-top: auto;
+            border-radius: 22px;
+            background: #111827;
+            color: #fff;
+            padding: 18px;
+            display: grid;
+            grid-template-columns: 98px 1fr;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .qr {
+            width: 98px;
+            height: 98px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+        }
+        
+        .qr img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            border-radius: 6px;
+            background: #fff;
+        }
+        
+        .link-qr-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+        
+        .link-qr-card {
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .16);
+            border-radius: 16px;
+            padding: 10px;
+            display: grid;
+            grid-template-columns: 64px 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .link-qr-card img {
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            background: #fff;
+            padding: 4px;
+            display: block;
+        }
+        
+        .link-qr-card strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 13px;
+            color: #fff;
+        }
+        
+        .link-qr-card span {
+            display: block;
+            color: #e5e7eb;
+            font-size: 11px;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+        
+        .qrtext strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 19px;
+            line-height: 1.1;
+        }
+        
+        .qrtext span {
+            display: block;
+            color: #e5e7eb;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .micro {
+            margin-top: 12px;
+            font-size: 12px;
+            line-height: 1.45;
+            color: #d1d5db;
+        }
+        
+        .badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .badge {
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .12);
+            border: 1px solid rgba(255, 255, 255, .14);
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .section-head {
+            margin: 0 0 18px;
+            font-size: 24px;
+            line-height: 1.1;
+            font-weight: 900;
+        }
+        
+        .card {
+            margin-bottom: 12px;
+            padding: 16px;
+            border-radius: 16px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .card strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 16px;
+        }
+        
+        .card span {
+            color: #374151;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+        
+        .steps {
+            display: grid;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        
+        .step {
+            display: grid;
+            grid-template-columns: 30px 1fr;
+            gap: 10px;
+            align-items: start;
+        }
+        
+        .num {
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111827;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 800;
+        }
+        
+        .step-text {
+            font-size: 15px;
+            line-height: 1.45;
+        }
+        
+        .direct-box {
+            margin-top: 18px;
+            padding: 16px;
+            border-radius: 18px;
+            background: #111827;
+            color: #fff;
+        }
+        
+        .direct-box strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 17px;
+            line-height: 1.2;
+        }
+        
+        .direct-box div {
+            font-size: 14px;
+            line-height: 1.55;
+            color: #e5e7eb;
+        }
+        
+        .footer-note {
+            margin-top: auto;
+            padding-top: 18px;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.45;
+        }
+        
+        code.inline {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Листовка A5 — версия под Telegram + VK</h1>
+    <div class="boards">
+        <div class="leaflet">
+            <div class="label">Лицевая</div>
+            <div class="pad">
+                <div class="eyebrow">Быстро и без давления</div>
+                <h2 class="hero">Проверка интернета по вашему адресу за 1 минуту</h2>
+                <p class="subhero">
+                    Сначала просто посмотрите, что доступно у вас дома. Без обязательств, без длинных разговоров и без оформления в лоб.
+                </p>
+
+                <div class="profile">
+                    <div class="photo" style="background-image:url('./alina.png');"></div>
+                    <div>
+                        <div class="name">Алина</div>
+                        <div class="role">Помогу быстро понять, что доступно по вашему адресу и какой вариант удобнее именно вам</div>
+                    </div>
+                </div>
+
+                <div class="bullets">
+                    <div class="bullet">
+                        <div class="dot"></div>
+                        <div>Для квартиры, семьи или активного пользования дома</div>
+                    </div>
+                    <div class="bullet">
+                        <div class="dot"></div>
+                        <div>Сначала проверка и подбор, потом уже решение</div>
+                    </div>
+                    <div class="bullet">
+                        <div class="dot"></div>
+                        <div>Можно написать в Telegram или VK — как удобнее</div>
+                    </div>
+                </div>
+
+                <div class="trustline">
+                    <strong>Главное:</strong> номер телефона оставляется только если вам это удобно. До этого можно просто посмотреть подходящий вариант.
+                </div>
+
+                <div class="qrbox">
+                    <div class="qr"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOgAAADoAQAAAADN0pXVAAABQElEQVR4nO2YwW7DQAhE31T5/1+eHmBZt4ccghvRVSJZiZmDZ8ICg2WefL6egR/0H6B4JdgYsOM7oJmcO+gDQp+wjOI2I0M5d/WiVIhAeEdmcr4JVQqdxeovUYF9lTyC1a3oA9ZhRkbC2pGZnLt6V0Ith9qKzOTcQbX9RvQocXEgMzk39cqgyGsNIjDyUM7N82zAWtNXkD88lXPXX8UBdnktY4N9or9K1OkybGyhzPFozq+jBiuyqxxHOthPCiOHvXJdZ9bv1URWj84GPZVz/zxHhwo7GRP41PqNqq2+vNfhQ/vzb38Va/AKz+Tc7FerevemUH/CTM7d/lzvN5ZSLzM9k3N7H8xNwYpUbys9k/NNqIUhNNvoSL/xE1XaLCOfeZ7TSJXxyCTDofUrX9zVeq9TDWsm55vm71uf+0Hfg34DHxCMokAeRtgAAAAASUVORK5CYII="
+                            alt="QR Telegram" /></div>
+                    <div>
+                        <div class="qrtext">
+                            <strong>Сканируйте QR</strong>
+                            <span>Telegram-бот: быстрый вход в проверку по адресу</span>
+                        </div>
+                        <div class="badges">
+                            <div class="badge">Telegram-бот</div>
+                            <div class="badge">Сообщество VK</div>
+                        </div>
+                        <div class="micro">
+                            Основной QR лучше вести в Telegram-бота.<br> VK оставь как запасной путь для тех, кому так привычнее.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="leaflet">
+            <div class="label">Оборот</div>
+            <div class="pad">
+                <h2 class="section-head">Как это работает</h2>
+
+                <div class="card">
+                    <strong>Сначала просто проверка</strong>
+                    <span>Вы пишете улицу и номер дома, а бот показывает подходящий вариант именно для вашего адреса.</span>
+                </div>
+
+                <div class="card">
+                    <strong>Потом выбор сценария</strong>
+                    <span>Для квартиры, семьи, нескольких устройств или только интернет — без лишней путаницы.</span>
+                </div>
+
+                <div class="card">
+                    <strong>Номер — только если захотите</strong>
+                    <span>Сначала можно просто посмотреть вариант. Оставить номер — это уже следующий шаг, а не обязательное условие.</span>
+                </div>
+
+                <div class="steps">
+                    <div class="step">
+                        <div class="num">1</div>
+                        <div class="step-text">Сканируете QR и открываете бота</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">2</div>
+                        <div class="step-text">Пишите улицу и номер дома</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">3</div>
+                        <div class="step-text">Выбираете, что вам нужно: для квартиры, семьи или только интернет</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">4</div>
+                        <div class="step-text">Получаете подходящий вариант и при желании оставляете номер для связи</div>
+                    </div>
+                </div>
+
+                <div class="direct-box">
+                    <strong>Можно перейти и напрямую</strong>
+                    <div>
+                        Telegram: @inet_yo_bot<br> VK: vk.me/inet_yo<br> Телефон: +7 987 731-05-29
+                    </div>
+                    <div class="link-qr-grid">
+                        <div class="link-qr-card">
+                            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOgAAADoAQAAAADN0pXVAAABQElEQVR4nO2YwW7DQAhE31T5/1+eHmBZt4ccghvRVSJZiZmDZ8ICg2WefL6egR/0H6B4JdgYsOM7oJmcO+gDQp+wjOI2I0M5d/WiVIhAeEdmcr4JVQqdxeovUYF9lTyC1a3oA9ZhRkbC2pGZnLt6V0Ith9qKzOTcQbX9RvQocXEgMzk39cqgyGsNIjDyUM7N82zAWtNXkD88lXPXX8UBdnktY4N9or9K1OkybGyhzPFozq+jBiuyqxxHOthPCiOHvXJdZ9bv1URWj84GPZVz/zxHhwo7GRP41PqNqq2+vNfhQ/vzb38Va/AKz+Tc7FerevemUH/CTM7d/lzvN5ZSLzM9k3N7H8xNwYpUbys9k/NNqIUhNNvoSL/xE1XaLCOfeZ7TSJXxyCTDofUrX9zVeq9TDWsm55vm71uf+0Hfg34DHxCMokAeRtgAAAAASUVORK5CYII="
+                                alt="QR Telegram" />
+                            <div>
+                                <strong>Telegram</strong>
+                                <span>t.me/inet_yo_bot</span>
+                            </div>
+                        </div>
+                        <div class="link-qr-card">
+                            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMsAAADLAQAAAADogFqeAAABhUlEQVR4nO2YQWqsQBiEv9JAuzM30JuYm+nRnJs4N9CdQmtloTPkLRxeIBAbUiub2hTN719VLXOCe3bGwB/1E9QqScpY3oFsLSZJUnEhha+oYNsQ7jX4DSrb8VIKX1GT1LGqGmADuCm7mML/o7J8voKMb1PhXt+kpfhlGd+hcAy2rRjGyh25x8p2DB4uovA1tUgSADdrKbhLeruUwnMqt21vLNXtA6C0bc8XUngOxzACsseqR/ZxSmFssPcp91wOoBg8NN7yRMTH4yOMlb0R7J6NJH5YvA+KPUNj8rkcmlS2zX7zTSfPpR8z35LGzWdA6Z5tLaa66ba1KIdGW57MtrFt+ZELyoFUZv4IZlpVemisGEZolU6qLO0uy6d3YGNRfeSzCyk8gw9EqPYd6R6nYVLPJpXP0HR5ZKppE2lSX1Llw53SMalnk2JRTZuxSB9tIk3qCGat4l5ePVP1JGRSO8J4VwfBQ9Mlsir/ManG7CaVSLZ5Nqm19AD2PNWQSJPS33PfL1GflBkB7ZQsfSYAAAAASUVORK5CYII="
+                                alt="QR VK" />
+                            <div>
+                                <strong>VK</strong>
+                                <span>vk.me/inet_yo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="footer-note">
+                    Лучший сценарий для листовки: QR ведёт в Telegram, а VK и телефон остаются как дополнительные способы связи.
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
