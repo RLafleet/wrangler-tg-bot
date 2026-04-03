@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A5 Leaflet Mockups</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            font-family: Inter, Arial, sans-serif;
+            background: #f4f4f5;
+            color: #111827;
+            padding: 24px;
+        }
+        
+        h1 {
+            margin: 0 0 10px;
+            font-size: 32px;
+        }
+        
+        p.topnote {
+            margin: 0 0 28px;
+            color: #4b5563;
+            font-size: 16px;
+        }
+        
+        .variant-title {
+            font-size: 24px;
+            margin: 36px 0 16px;
+            font-weight: 800;
+        }
+        
+        .boards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 24px;
+            align-items: start;
+        }
+        
+        .leaflet {
+            background: white;
+            width: 100%;
+            aspect-ratio: 148 / 210;
+            border-radius: 20px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .pad {
+            padding: 24px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .eyebrow {
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #6b7280;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .hero {
+            font-size: 28px;
+            line-height: 1.08;
+            font-weight: 900;
+            margin: 0 0 18px;
+        }
+        
+        .hero.small {
+            font-size: 24px;
+        }
+        
+        .profile {
+            display: grid;
+            grid-template-columns: 92px 1fr;
+            gap: 16px;
+            align-items: center;
+            margin: 6px 0 18px;
+        }
+        
+        .photo {
+            width: 92px;
+            height: 92px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #d1d5db, #9ca3af);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: white;
+            font-weight: 700;
+            text-align: center;
+            padding: 8px;
+        }
+        
+        .name {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+        
+        .role {
+            color: #374151;
+            font-size: 15px;
+            line-height: 1.35;
+        }
+        
+        .bullets {
+            display: grid;
+            gap: 10px;
+            margin: 2px 0 20px;
+            font-size: 16px;
+        }
+        
+        .bullet {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            color: #111827;
+        }
+        
+        .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #111827;
+            margin-top: 7px;
+            flex: 0 0 9px;
+        }
+        
+        .qrbox {
+            margin-top: auto;
+            background: #111827;
+            color: white;
+            border-radius: 20px;
+            padding: 18px;
+            display: grid;
+            grid-template-columns: 96px 1fr;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .qr {
+            width: 96px;
+            height: 96px;
+            background: linear-gradient(90deg, #fff 10px, transparent 10px) 0 0/24px 24px, linear-gradient(#fff 10px, transparent 10px) 0 0/24px 24px, #fff;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .qr:before,
+        .qr:after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent 0 8px, #111827 8px 16px, transparent 16px 24px), linear-gradient(transparent 0 8px, #111827 8px 16px, transparent 16px 24px);
+            opacity: 0.9;
+            mix-blend-mode: multiply;
+        }
+        
+        .qrtext strong {
+            display: block;
+            font-size: 18px;
+            line-height: 1.15;
+            margin-bottom: 8px;
+        }
+        
+        .qrtext span {
+            font-size: 14px;
+            line-height: 1.35;
+            color: #e5e7eb;
+        }
+        
+        .contact {
+            margin-top: 14px;
+            font-size: 13px;
+            color: #d1d5db;
+            line-height: 1.5;
+        }
+        
+        .section-head {
+            font-size: 22px;
+            font-weight: 900;
+            margin: 0 0 18px;
+            line-height: 1.15;
+        }
+        
+        .card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .card strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
+        
+        .card span {
+            color: #374151;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .steps {
+            margin-top: 16px;
+            display: grid;
+            gap: 10px;
+        }
+        
+        .step {
+            display: grid;
+            grid-template-columns: 30px 1fr;
+            gap: 10px;
+            align-items: start;
+        }
+        
+        .num {
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            background: #111827;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+        }
+        
+        .step div:last-child {
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        
+        .footer-note {
+            margin-top: auto;
+            padding-top: 18px;
+            font-size: 14px;
+            color: #374151;
+            font-weight: 700;
+        }
+        
+        .label {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            font-size: 12px;
+            font-weight: 800;
+            background: #eef2ff;
+            color: #3730a3;
+            padding: 8px 12px;
+            border-radius: 999px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Варианты A5-листовки</h1>
+    <p class="topnote">Основа под тест: 3 концепции, у каждой есть лицевая и обратная сторона. Фото, Telegram, телефон и QR-заглушку потом заменишь на свои.</p>
+
+    <div class="variant-title">Вариант 1 — главный кандидат</div>
+    <div class="boards">
+        <div class="leaflet">
+            <div class="label">Лицевая</div>
+            <div class="pad">
+                <div class="eyebrow">Быстро и без давления</div>
+                <h2 class="hero">Проверка интернета по вашему адресу за 1 минуту</h2>
+                <div class="profile">
+                    <div class="photo">ТВОЕ<br>ФОТО</div>
+                    <div>
+                        <div class="name">Максим</div>
+                        <div class="role">Помогу подобрать удобный вариант для дома</div>
+                    </div>
+                </div>
+                <div class="bullets">
+                    <div class="bullet">
+                        <div class="dot"></div>
+                        <div>Для квартиры или семьи</div>
+                    </div>
+                    <div class="bullet">
+                        <div class="dot"></div>
+                        <div>Без звонков и обязательств</div>
+                    </div>
+                </div>
+                <div class="qrbox">
+                    <div class="qr"></div>
+                    <div>
+                        <div class="qrtext"><strong>Сканируйте QR</strong><span>Узнайте, что доступно по вашему адресу</span></div>
+                        <div class="contact">Telegram: @your_bot<br>Телефон: +7 XXX XXX-XX-XX</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="leaflet">
+            <div class="label">Оборот</div>
+            <div class="pad">
+                <h2 class="section-head">Что вы узнаете за минуту</h2>
+                <div class="card"><strong>Что доступно именно у вас</strong><span>Проверка по адресу без лишней путаницы и длинных разговоров.</span></div>
+                <div class="card"><strong>Что подойдет именно вам</strong><span>Для квартиры, семьи или активного пользования дома.</span></div>
+                <div class="card"><strong>Нужен ли только интернет</strong><span>Или удобнее сразу другой вариант под ваш сценарий.</span></div>
+                <div class="steps">
+                    <div class="step">
+                        <div class="num">1</div>
+                        <div>Сканируете QR</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">2</div>
+                        <div>Указываете адрес</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">3</div>
+                        <div>Получаете подходящий вариант</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">4</div>
+                        <div>Если захотите — оставляете номер, и я помогаю с подключением</div>
+                    </div>
+                </div>
+                <div class="footer-note">Без обязательств. Просто проверка и подбор.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="variant-title">Вариант 2 — более мягкий и любопытный</div>
+    <div class="boards">
+        <div class="leaflet">
+            <div class="label">Лицевая</div>
+            <div class="pad">
+                <div class="eyebrow">Локальная помощь</div>
+                <h2 class="hero">Узнайте, что доступно по вашему адресу</h2>
+                <div class="profile">
+                    <div class="photo">ТВОЕ<br>ФОТО</div>
+                    <div>
+                        <div class="name">Максим</div>
+                        <div class="role">Помогу быстро разобраться, что подойдет для дома</div>
+                    </div>
+                </div>
+                <div class="bullets">
+                    <div class="bullet">
+                        <div class="dot"></div>
+                        <div>Для квартиры, семьи или активного интернета</div>
+                    </div>
+                    <div class="bullet">
+                        <div class="dot"></div>
+                        <div>Просто, спокойно и без давления</div>
+                    </div>
+                </div>
+                <div class="qrbox">
+                    <div class="qr"></div>
+                    <div>
+                        <div class="qrtext"><strong>Сканируйте QR</strong><span>Посмотрите, что можно подключить у вас дома</span></div>
+                        <div class="contact">Telegram: @your_bot<br>Телефон: +7 XXX XXX-XX-XX</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="leaflet">
+            <div class="label">Оборот</div>
+            <div class="pad">
+                <h2 class="section-head">Что можно быстро проверить</h2>
+                <div class="card"><strong>Подходит ли ваш адрес</strong><span>Покажу, какие варианты доступны именно у вас дома.</span></div>
+                <div class="card"><strong>Какой сценарий вам ближе</strong><span>Для квартиры, семьи, нескольких устройств или только для базовых задач.</span></div>
+                <div class="card"><strong>Нужно ли сразу оформлять</strong><span>Нет. Сначала просто посмотрите варианты и решите спокойно.</span></div>
+                <div class="steps">
+                    <div class="step">
+                        <div class="num">1</div>
+                        <div>Открываете бота по QR</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">2</div>
+                        <div>Пишите улицу и номер дома</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">3</div>
+                        <div>Получаете подходящий вариант</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">4</div>
+                        <div>Если захотите — связываетесь со мной напрямую</div>
+                    </div>
+                </div>
+                <div class="footer-note">Никаких обязательств. Сначала польза, потом решение.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="variant-title">Вариант 3 — более вовлекающий вопрос</div>
+    <div class="boards">
+        <div class="leaflet">
+            <div class="label">Лицевая</div>
+            <div class="pad">
+                <div class="eyebrow">Персональный подбор</div>
+                <h2 class="hero small">Какой интернет подойдет именно для вашего дома?</h2>
+                <div class="profile">
+                    <div class="photo">ТВОЕ<br>ФОТО</div>
+                    <div>
+                        <div class="name">Максим</div>
+                        <div class="role">Помогу быстро это проверить и подобрать удобный вариант</div>
+                    </div>
+                </div>
+                <div class="bullets">
+                    <div class="bullet">
+                        <div class="dot"></div>
+                        <div>За 1 минуту</div>
+                    </div>
+                    <div class="bullet">
+                        <div class="dot"></div>
+                        <div>Без звонков и обязательств</div>
+                    </div>
+                </div>
+                <div class="qrbox">
+                    <div class="qr"></div>
+                    <div>
+                        <div class="qrtext"><strong>Сканируйте QR</strong><span>Проверьте, что можно подключить по вашему адресу</span></div>
+                        <div class="contact">Telegram: @your_bot<br>Телефон: +7 XXX XXX-XX-XX</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="leaflet">
+            <div class="label">Оборот</div>
+            <div class="pad">
+                <h2 class="section-head">Это полезно, если вы хотите понять</h2>
+                <div class="card"><strong>Что доступно именно у вас</strong><span>Без звонков и без необходимости сразу что-то оформлять.</span></div>
+                <div class="card"><strong>Что лучше для вашего сценария</strong><span>Нужен базовый вариант, вариант для семьи или для активного пользования.</span></div>
+                <div class="card"><strong>Стоит ли двигаться дальше</strong><span>Сначала просто увидите вариант, потом решите, нужно ли подключение.</span></div>
+                <div class="steps">
+                    <div class="step">
+                        <div class="num">1</div>
+                        <div>Сканируете QR</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">2</div>
+                        <div>Пишете адрес</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">3</div>
+                        <div>Получаете подбор</div>
+                    </div>
+                    <div class="step">
+                        <div class="num">4</div>
+                        <div>При желании оставляете номер для связи</div>
+                    </div>
+                </div>
+                <div class="footer-note">Простой путь: проверить → понять → решить.</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
