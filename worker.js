@@ -34,6 +34,9 @@
  * - VK_TARIFF_FAMILY_ATTACHMENT (plain)
  * - VK_TARIFF_ACTIVE_ATTACHMENT (plain)
  * - VK_TARIFF_ONLY_ATTACHMENT (plain)
+ * 
+ * - GROUP_CLOSE_FILE_ID (plain)         // Telegram file_id for "группа для близких"
+ * - VK_GROUP_CLOSE_ATTACHMENT (plain)   // VK attachment for "группа для близких"
  */
 
 const CONTACT_USERNAME = "@Cerber03w";
@@ -59,6 +62,8 @@ const DEFAULT_TARIFF_ACTIVE_FILE_ID =
     "AgACAgIAAxkBAAOtac5lH-mdwXaSydWEB2ttvVV-hKkAAnoUaxuSZXlKkpDAOEenoyoBAAMCAAN4AAM6BA";
 const DEFAULT_TARIFF_ONLY_FILE_ID =
     "AgACAgIAAxkBAAPJac5oqBh1yQ9rj1Y2MZsSK7DuASMAAqgUaxuSZXlKkmSgnPMC1hsBAAMCAAN4AAM6BA";
+const DEFAULT_GROUP_CLOSE_FILE_ID =
+    "AgACAgIAAxkDAAIBiWnPp1-v9O3IsTbeqv5vRPdKGHqrAAIaFmsbkmWBSruf_ONYqCwuAQADAgADeQADOgQ";
 
 export default {
     async fetch(request, env, ctx) {
@@ -330,7 +335,8 @@ function isLeavePhoneValue(value) {
 }
 
 function wantsRestart(text) {
-    return String(text || "").trim().toLowerCase() === "/start";
+    const normalized = String(text || "").trim().toLowerCase();
+    return normalized === "/start" || normalized === "начать" || normalized === "start";
 }
 
 /* -------------------------------------------------------------------------- */
@@ -461,6 +467,14 @@ function getTelegramTariffPhotoId(env, scenarioText) {
         return env.TARIFF_ACTIVE_FILE_ID || DEFAULT_TARIFF_ACTIVE_FILE_ID;
     }
     return env.TARIFF_ONLY_FILE_ID || DEFAULT_TARIFF_ONLY_FILE_ID;
+}
+
+function getTelegramGroupClosePhotoId(env) {
+    return env.GROUP_CLOSE_FILE_ID || DEFAULT_GROUP_CLOSE_FILE_ID;
+}
+
+function getVkGroupCloseAttachment(env) {
+    return env.VK_GROUP_CLOSE_ATTACHMENT || "";
 }
 
 /* -------------------------------------------------------------------------- */
@@ -614,6 +628,7 @@ async function registerStartLead(env, user, channel, chatId, session) {
     const lead = {
         channel,
         chatId,
+        vk_user_id: channel === CHANNEL_VK ? user.id || chatId : "",
         firstName: user && user.firstName || "",
         username: user && user.username || "",
         address: "",
@@ -636,6 +651,7 @@ async function registerOfferClickLead(env, user, channel, chatId, session) {
     const lead = {
         channel,
         chatId,
+        vk_user_id: channel === CHANNEL_VK ? user.id || chatId : "",
         firstName: user && user.firstName || "",
         username: user && user.username || "",
         address: session.address,
@@ -683,6 +699,7 @@ async function notifyAdmin(env, lead) {
         `Телефон: ${lead.phone || "-"}\n` +
         `Username: ${lead.username ? "@" + lead.username : "-"}\n` +
         `Chat ID: ${lead.chatId}\n` +
+        `VK User ID: ${lead.vk_user_id || "-"}\n` +
         `Статус: ${lead.status || "-"}\n` +
         `Создано: ${lead.createdAt}`;
 
@@ -716,6 +733,7 @@ async function finalizeLead(env, inbound, session, status = STEP_DONE) {
     const lead = {
         channel,
         chatId,
+        vk_user_id: channel === CHANNEL_VK ? inbound.user.id : "",
         firstName: inbound.user.firstName || "",
         username: inbound.user.username || "",
         address: session.address,
@@ -928,25 +946,44 @@ async function handleCommonInbound(inbound, env) {
     if (
         text === "Что значит группа для близких?" &&
         session.step === STEP_WAITING_PHONE &&
-        (session.scenario === "Для квартиры или семьи" ||
-            session.scenario === "Для активного интернета и нескольких устройств")
+        (
+            session.scenario === "Для квартиры или семьи" ||
+            session.scenario === "Для активного интернета и нескольких устройств"
+        )
     ) {
         const helpText =
-            "Группа для близких — это возможность объединить близких в один удобный сценарий пользования связью. " +
-            "Я подскажу, как это работает и что именно входит, когда свяжусь с вами.";
+            "Группа для близких — это возможность объединить близких в один удобный сценарий пользования связью.\n" +
+            "Посмотрите пример на изображении ниже.\n\n" +
+            "Если удобно, после этого отправьте номер телефона — я свяжусь с вами и всё объясню.";
 
         if (channel === CHANNEL_VK) {
-            await sendMessage(env, channel, chatId, helpText, {
-                keyboard: buildVkPhoneKeyboard(session.scenario),
-            });
+            const attachment = getVkGroupCloseAttachment(env);
+
+            if (attachment) {
+                await sendPhoto(env, channel, chatId, attachment, helpText, {
+                    keyboard: buildVkPhoneKeyboard(session.scenario),
+                });
+            } else {
+                await sendMessage(env, channel, chatId, helpText, {
+                    keyboard: buildVkPhoneKeyboard(session.scenario),
+                });
+            }
         } else {
-            await sendMessage(env, channel, chatId, helpText, {
-                reply_markup: buildTelegramPhoneReplyKeyboard(session.scenario),
-            });
+            const photoId = getTelegramGroupClosePhotoId(env);
+
+            if (photoId) {
+                await sendPhoto(env, channel, chatId, photoId, helpText, {
+                    reply_markup: buildTelegramPhoneReplyKeyboard(session.scenario),
+                });
+            } else {
+                await sendMessage(env, channel, chatId, helpText, {
+                    reply_markup: buildTelegramPhoneReplyKeyboard(session.scenario),
+                });
+            }
         }
+
         return;
     }
-
     if (session.step === STEP_WAITING_ADDRESS) {
         if (!isValidAddress(text)) {
             await sendMessage(env, channel, chatId, "Пожалуйста, напишите улицу и номер дома, например: Советская 120.");
