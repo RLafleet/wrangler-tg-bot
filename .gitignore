@@ -1,3 +1,4 @@
 wrangler.toml
 wrangler.template.toml
 .wrangler/cache/wrangler-account.json
+node_modules/
